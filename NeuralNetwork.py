@@ -9,6 +9,18 @@ from numba import jit
 
 # Definimos la función sigmoide que es la función de activación. 
 
+def sigmoide_modificada(x, derivada=False) -> np.float64:
+    """Tiene como entrada el dato a evaluar."""
+    # Si queremos que se retorne la derivada de la función sigmoide 
+    # el parámetro derivada = True
+    if derivada == True: 
+        return x * (1 - x) # Derivada simple de la función sigmoide.
+    
+    elif derivada == False:
+        resultado = 1/(1 + np.exp(-x))
+        return 1 if resultado.any() > 0.5 else 0 # Función de activación sin derivar.
+    
+
 def sigmoide(x, derivada=False) -> np.float64:
     """Tiene como entrada el dato a evaluar."""
     # Si queremos que se retorne la derivada de la función sigmoide 
@@ -22,7 +34,7 @@ def sigmoide(x, derivada=False) -> np.float64:
 
 def tan_h(x, derivada=False):
     if derivada == True:
-        return (1 - (np.tanh(x))**2)
+        return (1 - (np.tanh(x)**2))
     
     elif derivada == False:
         return np.tanh(x)
@@ -59,9 +71,9 @@ def capa_de_neuronas(conexiones, numero_neuronas) -> np.array:
         weights = conexiones * neuronas
     """
     # Para generar pesos en un rango entre (-1, 1) multiplicamos el arreglo por 2 y restamos 1.
-    weights = np.random.rand(conexiones, numero_neuronas) * 2 - 1
+    weights = np.random.rand(conexiones, numero_neuronas) #* 2 - 1
     # Para generar un bias en un rango entre (-1, 1) multiplicamos el arreglo por 2 y restamos 1.
-    bias = np.random.rand(1, numero_neuronas) * 2 -1 
+    bias = np.random.rand(1, numero_neuronas) #* 2 -1 
     
     return weights, bias
 
@@ -108,6 +120,51 @@ def crear_modelo_de_red(topologia=[]) -> list:
     return red_neuronal
 
 
+def obtener_caracteristicas_de_la_red(red_neuronal, caracteristica='pesos', entradas=[], funcion_de_activacion=sigmoide) -> np.array:
+    """
+    Esta función extrae características de una red neuronal creada,
+    siendo estas características los pesos o los bias por cada capa
+    de la red neuronal. 
+    
+    Entradas: 
+    >>> red_neuronal: Es la red neuronal de la que queremos extraer características.
+    >>> caracteristicas: Es el parámetro que permite escoger la característica a obtener.
+        Siendo estas: "pesos", "bias" o "activacion"
+    >>> entradas: Si se desea conocer la activación de la red se deben ingresar los datos de entrada, por ejemplo: 
+            X = np.array([
+                            [0,0],
+                            [0,1],
+                            [1,0],
+                            [1,1],
+                        ])
+                        
+        Para una red neuronal con 2 entradas.
+    >>> funcion_de_activacion: Por defecto viene la función sigmoide pero se puede cambiar. Esto es útil para conocer
+        la activación de la red por capa. 
+    """
+    almacenamiento_de_caracteristicas = []
+    if caracteristica == 'pesos':
+        indice = 0
+    elif caracteristica == 'bias':
+        indice = 1
+    if caracteristica != 'activacion':    
+        for capa in red_neuronal:
+            almacenamiento_de_caracteristicas.append(capa[indice])
+    
+    elif caracteristica == 'activacion':
+        
+        salida_por_capa = entradas
+        
+        for capa in red_neuronal:
+            pesos = capa[0]
+            bias = capa[1]
+            calculo_de_x = salida_por_capa.dot(pesos) + bias
+            salida_por_capa = funcion_de_activacion(calculo_de_x)
+            
+            almacenamiento_de_caracteristicas.append(salida_por_capa)
+        
+    return almacenamiento_de_caracteristicas
+
 # Una vez entrenada la red realiza una predicción. 
 def predecir(entradas, red_neuronal_entrenada, funcion_de_activacion=sigmoide) -> np.array:
     
@@ -138,7 +195,7 @@ def predecir(entradas, red_neuronal_entrenada, funcion_de_activacion=sigmoide) -
         calculo_de_x = salida_por_capa.dot(pesos) + bias
         
         # Evalúa la función de activación en X
-        salida_por_capa = funcion_de_activacion(calculo_de_x) 
+        salida_por_capa = funcion_de_activacion(calculo_de_x)
     
     return salida_por_capa
 
@@ -197,8 +254,7 @@ def entrenar_red_neuronal(red_neuronal_sin_entrenar, funcion_de_activacion=sigmo
                 arreglo_de_deltas.insert(0, arreglo_de_deltas[0].dot(pesos_retropropagacion.T) * funcion_de_activacion(salida_activada, derivada=True))
                 
             pesos_retropropagacion = red_neuronal_sin_entrenar[indice_reverso_de_capa][0]    
-            
-            
+
             # pesos_actualizados = list(red_neuronal_sin_entrenar[indice_reverso_de_capa][0])
             # bias_actualizados = list(red_neuronal_sin_entrenar[indice_reverso_de_capa][1])
             
@@ -206,9 +262,50 @@ def entrenar_red_neuronal(red_neuronal_sin_entrenar, funcion_de_activacion=sigmo
             bias_actualizados = red_neuronal_sin_entrenar[indice_reverso_de_capa][1]  - np.mean(arreglo_de_deltas[0], axis = 0, keepdims = True) * tasa_de_aprendizaje 
 
             red_neuronal_sin_entrenar[indice_reverso_de_capa] = tuple([pesos_actualizados, bias_actualizados])
-            
-        print(f'Epoch: {epoch}      |       Error: {mean_squared_error(salida_activada, valor_real)}')        
+        # if epoch == 1:
+            # print(f'Epoch: {epoch}      |       Error: {mean_squared_error(salida_activada, valor_real)}')          
+    # print(f'Epoch: {epoch}      |       Error: {mean_squared_error(salida_activada, valor_real)}')        
     return red_neuronal_sin_entrenar
+
+
+def Alejandro(activacion, pesos):
+    
+    """Recibe pesos y los transforma en 0 y 1"""
+    
+    pesos_candidatos = pesos
+    for capa in range(len(activacion)-1):
+        for neurona_i in range(len(activacion[capa])):
+            for neurona_ii in range(len(activacion[capa+1])):
+                if activacion[capa][neurona_i]==1 and activacion[capa+1][neurona_ii]==1:
+                    pesos_candidatos[capa][neurona_i][neurona_ii] = 1
+                else:
+                    pesos_candidatos[capa][neurona_i][neurona_ii] = 0
+
+    return pesos_candidatos
+
+
+def entrenamiento_hecho_en_casa(weights, candidatos):
+    """Cambia el peso que es"""
+    
+    prop = -np.log(weights[0])*candidatos[0]
+    
+    for i in range(len(weights)-1):
+        new = -np.log(weights[i+1])*candidatos[i+1]
+        prop = np.concatenate((prop.ravel(), new.ravel()))
+        
+    cumsum_prop = np.cumsum(prop/np.sum(prop))
+    m = np.random.uniform(0,1)
+    i_change = np.searchsorted(cumsum_prop, m, side="right")
+
+    δ = 0.2
+    iterador = 0
+    
+    for i1 in range(len(weights)):
+        for i2 in range(len(weights[i1])):
+            for i3 in range(len(weights[i1][i2])):
+                if iterador==i_change:
+                    weights[i1][i2][i3] = weights[i1][i2][i3] + δ
+                iterador+=1
 
 
 # __________ Herramientas para leer datos __________ # 
