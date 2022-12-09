@@ -1,4 +1,4 @@
-# Neural Network
+# Neural Network 🤖
 ## Description
 NeuralNetwork is a library understanding basic principles 
 of artificial intelligence (AI) and an easy implementation of new training algorithms. 
@@ -53,3 +53,12 @@ plt.savefig('XOR_Fitted.jpg')
 # Note
 Please check Experimentos.ipynb file to learn more examples.
 
+### Logic Gates
+
+![Compuertas logicas](https://github.com/SergioPachonDotor/NeuralNetwork_v1.0/blob/main/Imagenes/Compuertas_logicas_2.png?raw=true "Compuertas logicas")
+
+### Circles Classification
+![Clasificación de círculos](https://github.com/SergioPachonDotor/NeuralNetwork_v1.0/blob/main/Imagenes/Clasificacion_circulos.png?raw=true "Clasificación de círculos")
+
+### Moons Classification
+![Clasificación de lunas](https://github.com/SergioPachonDotor/NeuralNetwork_v1.0/blob/main/Imagenes/Clasificacion_lunas.png?raw=true "Clasificación de lunas")
