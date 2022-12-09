@@ -9,17 +9,14 @@ from numba import jit
 
 # Definimos la función sigmoide que es la función de activación. 
 
-def sigmoide_modificada(x, derivada=False) -> np.float64:
-    """Tiene como entrada el dato a evaluar."""
-    # Si queremos que se retorne la derivada de la función sigmoide 
-    # el parámetro derivada = True
-    if derivada == True: 
-        return x * (1 - x) # Derivada simple de la función sigmoide.
+def funcion_de_hill(x, n=10, k=1, derivada=False):
+    if derivada == False:
+        return (1 * (x**n))/(k**n + x**n)
     
-    elif derivada == False:
-        resultado = 1/(1 + np.exp(-x))
-        return 1 if resultado.any() > 0.5 else 0 # Función de activación sin derivar.
-    
+    elif derivada == True:
+        resultado_hill = ((k**n -(np.log(k) + np.log(x)) * x**n)/((k**n + x**n)**2))
+        return resultado_hill/np.sqrt(np.sum(resultado_hill**2))
+
 
 def sigmoide(x, derivada=False) -> np.float64:
     """Tiene como entrada el dato a evaluar."""
@@ -268,45 +265,74 @@ def entrenar_red_neuronal(red_neuronal_sin_entrenar, funcion_de_activacion=sigmo
     return red_neuronal_sin_entrenar
 
 
-def Alejandro(activacion, pesos):
-    
-    """Recibe pesos y los transforma en 0 y 1"""
-    
-    pesos_candidatos = pesos
-    for capa in range(len(activacion)-1):
-        for neurona_i in range(len(activacion[capa])):
-            for neurona_ii in range(len(activacion[capa+1])):
-                if activacion[capa][neurona_i]==1 and activacion[capa+1][neurona_ii]==1:
-                    pesos_candidatos[capa][neurona_i][neurona_ii] = 1
-                else:
-                    pesos_candidatos[capa][neurona_i][neurona_ii] = 0
+def actualizacion_de_un_solo_peso(pesos, signo, δ=0.2):
 
-    return pesos_candidatos
-
-
-def entrenamiento_hecho_en_casa(weights, candidatos):
-    """Cambia el peso que es"""
+    prop = -np.log(pesos[0]) * (pesos[0] > 0.5) * 1.0
     
-    prop = -np.log(weights[0])*candidatos[0]
-    
-    for i in range(len(weights)-1):
-        new = -np.log(weights[i+1])*candidatos[i+1]
+    for i in range(len(pesos) -1):
+        new = - np.log(pesos[i + 1]) * (pesos[i + 1] > 0.5) * 1.0
         prop = np.concatenate((prop.ravel(), new.ravel()))
-        
-    cumsum_prop = np.cumsum(prop/np.sum(prop))
-    m = np.random.uniform(0,1)
+            
+    cumsum_prop = np.cumsum(prop / np.sum(prop))
+    m = np.random.uniform(0 , 1)
     i_change = np.searchsorted(cumsum_prop, m, side="right")
 
-    δ = 0.2
-    iterador = 0
+    dimens = np.zeros(len(pesos))
     
-    for i1 in range(len(weights)):
-        for i2 in range(len(weights[i1])):
-            for i3 in range(len(weights[i1][i2])):
-                if iterador==i_change:
-                    weights[i1][i2][i3] = weights[i1][i2][i3] + δ
-                iterador+=1
+    for i_matrix in range(len(pesos)):
+        
+        if len(pesos[i_matrix].shape) == 1:
+            dimens[i_matrix] = pesos[i_matrix].shape[0]
+        else:
+            dimens[i_matrix] = pesos[i_matrix].shape[0] * pesos[i_matrix].shape[1]
+            
+    cum_dimens = np.cumsum(dimens)
+    i_matrix_change = np.searchsorted(cum_dimens, i_change, side="right")
+    
+    changed_matrix = pesos[i_matrix_change].ravel()
+    changed_matrix[int(i_change - cum_dimens[i_matrix_change])] += ( signo * δ)
+    
+    pesos[i_matrix_change] = changed_matrix.reshape(pesos[i_matrix_change].shape[0], pesos[i_matrix_change].shape[1])
+    
+    return pesos
 
+
+def entrenar_red_con_gillespie(red_neuronal_sin_entrenar, funcion_de_activacion=sigmoide, funcion_de_coste=mean_squared_error, valor_de_prediccion = [], valor_real = [], epochs = 100, tasa_de_aprendizaje = 0.1):
+    """Cambia el peso que es"""
+    
+    """ 
+        Una vez entrenada la red, esta función permite realizar feed propagation
+        lo que permite realizar predicciones. 
+    """
+    # La primera capa de la red cuenta como la primera salida de la primera capa.
+    for epoch in tqdm(range(epochs)):
+        
+        # Salida sin activar, Salida activada
+        salida_por_capa = [(None, valor_de_prediccion)]
+        pesos_por_capa = []
+        bias_por_capa = []
+        
+        for indice_capa in range(len(red_neuronal_sin_entrenar)):
+            
+            pesos = red_neuronal_sin_entrenar[indice_capa][0]
+            bias  = red_neuronal_sin_entrenar[indice_capa][1]
+            
+            salida_sin_activar = salida_por_capa[-1][1].dot(pesos) + bias
+            salida_activada = funcion_de_activacion(salida_sin_activar)
+            
+            salida_por_capa.append((salida_sin_activar, salida_activada)) # indice 0 | indice 1
+            pesos_por_capa.append(pesos)
+            bias_por_capa.append(bias)
+                
+        neuronas_activadas_ultima_capa = salida_por_capa[-1][1] 
+        error = funcion_de_coste(neuronas_activadas_ultima_capa, valor_real)
+        gusto = (error < 0.5) * 1.0
+        signo = 1 if gusto == 0.0 else -1
+        for indice_capa in range(len(red_neuronal_sin_entrenar)):
+            peso_actualizado = actualizacion_de_un_solo_peso(pesos_por_capa, signo, δ=tasa_de_aprendizaje)
+            red_neuronal_sin_entrenar[indice_capa] = tuple([peso_actualizado[indice_capa], bias_por_capa[indice_capa]])
+    
+    return red_neuronal_sin_entrenar
 
 # __________ Herramientas para leer datos __________ # 
 def cargar_datos():
@@ -322,7 +348,7 @@ if __name__ == '__main__':
         return np.array([x, y]).T
 
 
-    red_xor = crear_modelo_de_red([2, 4, 1])
+    red_xor = crear_modelo_de_red([2, 8, 1])
 
     X = np.array([
         [0,0],
@@ -331,6 +357,8 @@ if __name__ == '__main__':
         [1,1],
     ])
 
+    # X = np.array([1, 1])
+
     Y = np.array([
         [0],
         [1],
@@ -338,10 +366,9 @@ if __name__ == '__main__':
         [0],
     ])
     # red_neuronal_sin_entrenar, funcion_de_activacion, valor_de_prediccion = [], valor_real = [], epochs = 100, tasa_de_aprendizaje = 0.1
-    red_entrenada = entrenar_red_neuronal(red_xor, tan_h, mean_squared_error,valor_de_prediccion=X, valor_real=Y, epochs=10000, tasa_de_aprendizaje=0.08)
+    # red_entrenada = entrenar_red_neuronal(red_xor, tan_h, mean_squared_error,valor_de_prediccion=X, valor_real=Y, epochs=10000, tasa_de_aprendizaje=0.08)
     
-    x_test = random_points(n = 5000)
-    # entradas, red_neuronal_entrenada, funcion_de_activacion
-    y_test = predecir(x_test, red_entrenada, tan_h)
-    # plt.scatter(x_test[:,0], x_test[:,1], c = y_test, s = 25, cmap='GnBu')
-    # plt.savefig('XOR_Fitted.jpg')
+    # x_test = random_points(n = 5000)
+    # y_test = predecir(x_test, red_entrenada, tan_h)
+    entrenar_red_con_gillespie(red_xor, tan_h, mean_squared_error,valor_de_prediccion=X, valor_real=Y, epochs=10, tasa_de_aprendizaje=0.08)
+    
