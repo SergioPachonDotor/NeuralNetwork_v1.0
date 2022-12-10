@@ -5,6 +5,9 @@ from numba import jit
 # NOTA: Para el algorimo de backpropagation se necesitan las derivadas
 # de las funciones de activación y una función de coste.
 
+def establecer_semilla(semilla=204596):
+    np.random.seed(semilla)
+
 # __________ Funciones de activación __________ #
 
 # Definimos la función sigmoide que es la función de activación. 
@@ -14,7 +17,7 @@ def funcion_de_hill(x, n=10, k=1, derivada=False):
         return (1 * (x**n))/(k**n + x**n)
     
     elif derivada == True:
-        resultado_hill = ((k**n -(np.log(k) + np.log(x)) * x**n)/((k**n + x**n)**2))
+        resultado_hill = (((k**n  * x**n) * - (np.log(x) + np.log(k)))/((k**n + x**n)**2))
         return resultado_hill/np.sqrt(np.sum(resultado_hill**2))
 
 
